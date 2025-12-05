@@ -1,26 +1,3 @@
-## 💻 Final ESP32 Code (Core Sketch)
-
-> Put this in `code/esp32_patient_monitor.ino`.  
-> Remember to replace `ssid`, `pass`, and `BLYNK_AUTH_TOKEN` with your own.
-
-```cpp
-/************************************************************
-  PATIENT HEALTH MONITOR SYSTEM - FINAL VERSION
-  Board : ESP32 Dev Module (ESP32-WROOM-32)
-
-  Sensors:
-    - DS18B20 (body temp)           -> GPIO 15
-    - DHT11 (room temp, humidity)   -> GPIO 4
-    - HW-827 pulse sensor (heart)   -> GPIO 35 (analog)
-
-  Blynk IoT Datastreams:
-    V1 = Body Temp (°C)
-    V2 = Body Temp (°F)
-    V3 = Room Temp (°C)
-    V4 = Humidity (%)
-    V5 = Heart Rate (BPM)
-************************************************************/
-
 // ---------------- BLYNK SETUP ----------------
 #define BLYNK_TEMPLATE_ID   "TMPL3zbbMAO_4"
 #define BLYNK_TEMPLATE_NAME "Patient Health Monitor System"
