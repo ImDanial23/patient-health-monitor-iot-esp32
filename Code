@@ -1,0 +1,169 @@
+## 💻 Final ESP32 Code (Core Sketch)
+
+> Put this in `code/esp32_patient_monitor.ino`.  
+> Remember to replace `ssid`, `pass`, and `BLYNK_AUTH_TOKEN` with your own.
+
+```cpp
+/************************************************************
+  PATIENT HEALTH MONITOR SYSTEM - FINAL VERSION
+  Board : ESP32 Dev Module (ESP32-WROOM-32)
+
+  Sensors:
+    - DS18B20 (body temp)           -> GPIO 15
+    - DHT11 (room temp, humidity)   -> GPIO 4
+    - HW-827 pulse sensor (heart)   -> GPIO 35 (analog)
+
+  Blynk IoT Datastreams:
+    V1 = Body Temp (°C)
+    V2 = Body Temp (°F)
+    V3 = Room Temp (°C)
+    V4 = Humidity (%)
+    V5 = Heart Rate (BPM)
+************************************************************/
+
+// ---------------- BLYNK SETUP ----------------
+#define BLYNK_TEMPLATE_ID   "TMPL3zbbMAO_4"
+#define BLYNK_TEMPLATE_NAME "Patient Health Monitor System"
+#define BLYNK_AUTH_TOKEN    "YOUR_BLYNK_AUTH_TOKEN"
+
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+char ssid[] = "YOUR_WIFI_SSID";
+char pass[] = "YOUR_WIFI_PASSWORD";
+
+BlynkTimer timer;
+
+// ---------------- DS18B20 SETUP ----------------
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
+#define ONE_WIRE_BUS 15          // DS18B20 data pin
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature bodyTemp(&oneWire);
+float lastBodyC = 36.5;          // start with reasonable default
+
+// ---------------- DHT11 SETUP ------------------
+#include <DHT.h>
+
+#define DHTPIN 4                 // DHT11 data pin
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// ---------------- HW-827 HEART SENSOR ----------
+// Using PulseSensor Playground library
+#define USE_ARDUINO_INTERRUPTS false
+#include <PulseSensorPlayground.h>
+
+const int PULSE_INPUT = 35;      // HW-827 signal pin
+int Threshold = 520;             // can be tuned
+
+PulseSensorPlayground pulseSensor;
+int latestBPM = 0;               // last valid BPM
+
+
+// ==========================================================
+//   SEND ALL SENSOR DATA TO BLYNK (every 1 second)
+// ==========================================================
+void sendData() {
+  // -------- DS18B20 Body Temperature --------
+  bodyTemp.requestTemperatures();
+  float bodyC = bodyTemp.getTempCByIndex(0);
+
+  if (bodyC == DEVICE_DISCONNECTED_C || bodyC < -10 || bodyC > 80) {
+    Serial.println("DS18B20 ERROR: invalid reading, using last value.");
+    bodyC = lastBodyC;
+  } else {
+    lastBodyC = bodyC;
+  }
+
+  float bodyF = bodyTemp.toFahrenheit(bodyC);
+
+  Serial.print("DS18B20 Body Temp: ");
+  Serial.print(bodyC);
+  Serial.print(" °C   ");
+  Serial.print(bodyF);
+  Serial.println(" °F");
+
+  Blynk.virtualWrite(V1, bodyC);
+  Blynk.virtualWrite(V2, bodyF);
+
+  // -------- DHT11 Room Temperature & Humidity --------
+  float roomTemp = dht.readTemperature();
+  float hum      = dht.readHumidity();
+
+  Serial.print("DHT11 Room Temp: ");
+  Serial.print(roomTemp);
+  Serial.print(" °C   Humidity: ");
+  Serial.print(hum);
+  Serial.println(" %");
+
+  Blynk.virtualWrite(V3, roomTemp);
+  Blynk.virtualWrite(V4, hum);
+
+  // -------- Heart Rate (latest BPM) --------
+  Serial.print("Latest BPM: ");
+  Serial.println(latestBPM);
+
+  int bpmToSend = latestBPM;
+  if (bpmToSend < 0)   bpmToSend = 0;
+  if (bpmToSend > 180) bpmToSend = 180;
+
+  Blynk.virtualWrite(V5, bpmToSend);
+
+  Serial.println("-------------------------------------");
+}
+
+
+// ==========================================================
+//   SETUP
+// ==========================================================
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println();
+  Serial.println("Starting Patient Health Monitor System...");
+
+  bodyTemp.begin();
+  dht.begin();
+
+  // Pulse sensor setup
+  pulseSensor.analogInput(PULSE_INPUT);
+  pulseSensor.setThreshold(Threshold);
+
+  if (pulseSensor.begin()) {
+    Serial.println("PulseSensor HW-827 initialized.");
+  } else {
+    Serial.println("ERROR: PulseSensor not initialized. Check wiring!");
+  }
+
+  // Blynk + WiFi
+  Serial.println("Connecting to Blynk...");
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+  Serial.println("Connected to Blynk!");
+
+  timer.setInterval(1000L, sendData);
+}
+
+
+// ==========================================================
+//   MAIN LOOP
+// ==========================================================
+void loop() {
+  Blynk.run();
+  timer.run();
+
+  int myBPM = pulseSensor.getBeatsPerMinute();
+
+  if (pulseSensor.sawStartOfBeat()) {
+    Serial.print("♥ Beat detected! BPM = ");
+    Serial.println(myBPM);
+
+    if (myBPM > 30 && myBPM < 220) {
+      latestBPM = myBPM;
+    }
+  }
+}
