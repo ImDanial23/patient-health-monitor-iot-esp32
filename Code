@@ -1,5 +1,5 @@
 // ---------------- BLYNK SETUP ----------------
-#define BLYNK_TEMPLATE_ID   "TMPL3zbbMAO_4"
+#define BLYNK_TEMPLATE_ID   "Add your Templet id"
 #define BLYNK_TEMPLATE_NAME "Patient Health Monitor System"
 #define BLYNK_AUTH_TOKEN    "YOUR_BLYNK_AUTH_TOKEN"
 
